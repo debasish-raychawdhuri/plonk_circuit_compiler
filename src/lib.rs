@@ -1,0 +1,179 @@
+pub mod nodes;
+
+// LALRPOP generates the parser module
+#[allow(clippy::all)]
+pub mod grammar {
+    include!(concat!(env!("OUT_DIR"), "/grammar.rs"));
+}
+
+pub fn add(left: u64, right: u64) -> u64 {
+    left + right
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_works() {
+        let result = add(2, 2);
+        assert_eq!(result, 4);
+    }
+
+    #[test]
+    fn test_simple_expression() {
+        let input = "x + y";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_boolean_expression() {
+        let input = "x > 0x5 && y < 0xa";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_multiple_expressions() {
+        let input = "x == 0x5; y != 0xa; z >= 0x14";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_complex_expression() {
+        let input = "(a + b) * c == d && e > f || g <= h";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_function_call() {
+        let input = "foo(x, y, z) == 0x2a";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_field_literal() {
+        let input = "0x123abc == 0x1c8";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_field_literal_parsing() {
+        use nodes::FieldLiteral;
+        use std::str::FromStr;
+
+        // Test small hex value
+        let lit = FieldLiteral::from_str("0x1").unwrap();
+        assert_eq!(lit.value, [1, 0, 0, 0]);
+
+        // Test larger hex value
+        let lit = FieldLiteral::from_str("0xFF").unwrap();
+        assert_eq!(lit.value, [0xFF, 0, 0, 0]);
+
+        // Test value that spans into second u64
+        let lit = FieldLiteral::from_str("0x10000000000000000").unwrap();
+        assert_eq!(lit.value, [0, 1, 0, 0]);
+
+        // Test max value for first u64
+        let lit = FieldLiteral::from_str("0xFFFFFFFFFFFFFFFF").unwrap();
+        assert_eq!(lit.value, [0xFFFFFFFFFFFFFFFF, 0, 0, 0]);
+
+        // Test full 256-bit value
+        let lit = FieldLiteral::from_str("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").unwrap();
+        assert_eq!(lit.value, [0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF]);
+
+        // Test case insensitivity
+        let lit1 = FieldLiteral::from_str("0xAbCdEf").unwrap();
+        let lit2 = FieldLiteral::from_str("0xabcdef").unwrap();
+        assert_eq!(lit1.value, lit2.value);
+    }
+
+    #[test]
+    fn test_field_literal_errors() {
+        use nodes::FieldLiteral;
+        use std::str::FromStr;
+
+        // Too long (more than 64 hex digits)
+        let result = FieldLiteral::from_str("0x10000000000000000000000000000000000000000000000000000000000000000");
+        assert!(result.is_err());
+
+        // Invalid character
+        let result = FieldLiteral::from_str("0xGG");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x > 0x5) 0xa else 0xb";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_nested_if_expression() {
+        let input = "if (x > 0x0) if (y > 0x0) 0x1 else 0x2 else 0x3";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_if_in_expression() {
+        let input = "x + if (flag) 0xa else 0xb";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_if_comparison() {
+        let input = "if (a == b) x else y > 0x10";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_if_with_compound() {
+        let input = "if (x > 0x5) { y = 0xa; y } else { 0xb }";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_compound_expression() {
+        let input = "{ x = 0x1; y = 0x2; x + y }";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_compound_no_statements() {
+        let input = "{ 0x42 }";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_nested_compound() {
+        let input = "{ x = { y = 0x1; y + 0x2 }; x * 0x3 }";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_compound_in_arithmetic() {
+        let input = "a + { b = 0x5; b * 0x2 }";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_compound_with_multiple_assignments_and_if() {
+        let input = "{ x = 0x1; y = x + 0x2; z = if (y > 0x5) y else 0x0; z }";
+        let program = grammar::ProgramParser::new().parse(input);
+        assert!(program.is_ok());
+    }
+}
