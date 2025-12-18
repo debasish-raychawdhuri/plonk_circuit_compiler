@@ -1,7 +1,38 @@
 # PLONK Circuit Compiler Grammar
 
 ## Overview
-This grammar parses a list of boolean expressions that operate on 256-bit field elements.
+This grammar parses programs consisting of:
+1. Optional public variable declarations
+2. Optional private variable declarations
+3. A list of boolean expressions that operate on 256-bit field elements
+
+## Program Structure
+
+A program consists of three parts:
+
+1. **Public Variable Declarations** (optional):
+   ```
+   public: var1, var2, var3
+   ```
+
+2. **Private Variable Declarations** (optional):
+   ```
+   private: var4, var5, var6
+   ```
+
+3. **Boolean Expressions** (one or more, semicolon-separated):
+   ```
+   expr1; expr2; expr3
+   ```
+
+**Complete Example:**
+```
+public: x, y
+private: z
+x + y == z;
+x > 0x0;
+y < 0x100
+```
 
 ## Literals
 **Field Literals**: 256-bit integers in hexadecimal format only
@@ -66,7 +97,13 @@ A program is a list of expressions separated by semicolons (`;`)
 ## Example Programs
 
 ```
-// Simple comparison
+// Program with public and private variables
+public: x, y
+private: z
+x + y == z;
+x > 0x0
+
+// Simple comparison (no variable declarations)
 x > 0x5
 
 // Multiple boolean expressions

@@ -176,4 +176,45 @@ mod tests {
         let program = grammar::ProgramParser::new().parse(input);
         assert!(program.is_ok());
     }
+
+    #[test]
+    fn test_public_vars() {
+        let input = "public: x, y, z x > 0x5";
+        let program = grammar::ProgramParser::new().parse(input).unwrap();
+        assert_eq!(program.public_vars, vec!["x", "y", "z"]);
+        assert_eq!(program.private_vars.len(), 0);
+    }
+
+    #[test]
+    fn test_private_vars() {
+        let input = "private: a, b, c a + b == c";
+        let program = grammar::ProgramParser::new().parse(input).unwrap();
+        assert_eq!(program.private_vars, vec!["a", "b", "c"]);
+        assert_eq!(program.public_vars.len(), 0);
+    }
+
+    #[test]
+    fn test_public_and_private_vars() {
+        let input = "public: x, y private: z x + y == z";
+        let program = grammar::ProgramParser::new().parse(input).unwrap();
+        assert_eq!(program.public_vars, vec!["x", "y"]);
+        assert_eq!(program.private_vars, vec!["z"]);
+    }
+
+    #[test]
+    fn test_program_with_multiple_expressions() {
+        let input = "public: x private: y x > 0x5; y < 0xa; x + y == 0xf";
+        let program = grammar::ProgramParser::new().parse(input).unwrap();
+        assert_eq!(program.public_vars, vec!["x"]);
+        assert_eq!(program.private_vars, vec!["y"]);
+        assert_eq!(program.expressions.len(), 3);
+    }
+
+    #[test]
+    fn test_no_var_declarations() {
+        let input = "x + y";
+        let program = grammar::ProgramParser::new().parse(input).unwrap();
+        assert_eq!(program.public_vars.len(), 0);
+        assert_eq!(program.private_vars.len(), 0);
+    }
 }

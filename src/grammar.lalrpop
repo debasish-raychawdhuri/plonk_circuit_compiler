@@ -3,9 +3,33 @@ use std::str::FromStr;
 
 grammar;
 
-// Program is a list of expressions (typically boolean expressions)
+// Program with optional public/private variable declarations followed by expressions
 pub Program: Program = {
-    <exprs:ExpressionList> => Program::new(exprs),
+    <pub_vars:PublicVars?> <priv_vars:PrivateVars?> <exprs:ExpressionList> =>
+        Program::new(
+            pub_vars.unwrap_or_else(|| vec![]),
+            priv_vars.unwrap_or_else(|| vec![]),
+            exprs
+        ),
+};
+
+// Public variable declarations: public: var1, var2, var3
+PublicVars: Vec<String> = {
+    "public" ":" <vars:VarList> => vars,
+};
+
+// Private variable declarations: private: var1, var2, var3
+PrivateVars: Vec<String> = {
+    "private" ":" <vars:VarList> => vars,
+};
+
+// Comma-separated list of variable names
+VarList: Vec<String> = {
+    <mut list:VarList> "," <var:Identifier> => {
+        list.push(var);
+        list
+    },
+    <var:Identifier> => vec![var],
 };
 
 ExpressionList: Vec<Box<dyn Node>> = {

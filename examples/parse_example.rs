@@ -1,7 +1,19 @@
 use plonk_circuit_compiler::grammar;
 
 fn main() {
-    // Example 1: Simple boolean expression
+    // Example 0: Program with public and private variables
+    let input0 = "public: x, y private: z x + y == z; x > 0x0";
+    match grammar::ProgramParser::new().parse(input0) {
+        Ok(program) => {
+            println!("✓ Parsed: {}", input0);
+            println!("  Public vars: {:?}", program.public_vars);
+            println!("  Private vars: {:?}", program.private_vars);
+            println!("  Expressions: {} boolean expressions", program.expressions.len());
+        },
+        Err(e) => println!("✗ Error parsing '{}': {:?}", input0, e),
+    }
+
+    // Example 1: Simple boolean expression (no var declarations)
     let input1 = "x > 0x5 && y < 0xa";
     match grammar::ProgramParser::new().parse(input1) {
         Ok(_program) => println!("✓ Parsed: {}", input1),

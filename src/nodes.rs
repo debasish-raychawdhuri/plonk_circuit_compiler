@@ -201,12 +201,18 @@ impl StatementNode for CompoundNode {}
 
 #[derive(Debug)]
 pub struct Program {
+    pub public_vars: Vec<String>,
+    pub private_vars: Vec<String>,
     pub expressions: Vec<Box<dyn Node>>,
 }
 
 impl Program {
-    pub fn new(expressions: Vec<Box<dyn Node>>) -> Self {
-        Program { expressions }
+    pub fn new(public_vars: Vec<String>, private_vars: Vec<String>, expressions: Vec<Box<dyn Node>>) -> Self {
+        Program {
+            public_vars,
+            private_vars,
+            expressions
+        }
     }
 }
 
