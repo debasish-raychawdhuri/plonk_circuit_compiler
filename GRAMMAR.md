@@ -8,7 +8,7 @@ This grammar parses programs consisting of:
 
 ## Program Structure
 
-A program consists of three parts:
+A program consists of four parts:
 
 1. **Public Variable Declarations** (optional):
    ```
@@ -20,7 +20,15 @@ A program consists of three parts:
    private: var4, var5, var6
    ```
 
-3. **Boolean Expressions** (one or more, semicolon-separated):
+3. **Function Definitions** (zero or more):
+   ```
+   fn function_name(param1:Type, param2:Type, ...): ReturnType { body }
+   ```
+   - Parameters are `name:Type` pairs
+   - Body must be a compound expression (braces are mandatory)
+   - Currently only `Field` type is supported
+
+4. **Boolean Expressions** (one or more, semicolon-separated):
    ```
    expr1; expr2; expr3
    ```
@@ -29,9 +37,11 @@ A program consists of three parts:
 ```
 public: x, y
 private: z
+fn add(a:Field, b:Field): Field { a + b }
+fn square(x:Field): Field { x * x }
 x + y == z;
-x > 0x0;
-y < 0x100
+add(x, y) == z;
+square(x) > 0x0
 ```
 
 ## Literals

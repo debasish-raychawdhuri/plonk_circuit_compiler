@@ -217,4 +217,52 @@ mod tests {
         assert_eq!(program.public_vars.len(), 0);
         assert_eq!(program.private_vars.len(), 0);
     }
+
+    #[test]
+    fn test_simple_function_def() {
+        let input = "fn add(x:Field, y:Field): Field { x + y } add(0x1, 0x2)";
+        let program = grammar::ProgramParser::new().parse(input).unwrap();
+        assert_eq!(program.functions.len(), 1);
+        assert_eq!(program.functions[0].name, "add");
+        assert_eq!(program.functions[0].parameters.len(), 2);
+        assert_eq!(program.functions[0].parameters[0].name, "x");
+        assert_eq!(program.functions[0].parameters[1].name, "y");
+    }
+
+    #[test]
+    fn test_function_no_params() {
+        let input = "fn get_zero(): Field { 0x0 } get_zero()";
+        let program = grammar::ProgramParser::new().parse(input).unwrap();
+        assert_eq!(program.functions.len(), 1);
+        assert_eq!(program.functions[0].name, "get_zero");
+        assert_eq!(program.functions[0].parameters.len(), 0);
+    }
+
+    #[test]
+    fn test_multiple_functions() {
+        let input = "fn add(x:Field, y:Field): Field { x + y } fn mul(a:Field, b:Field): Field { a * b } add(0x1, 0x2)";
+        let program = grammar::ProgramParser::new().parse(input).unwrap();
+        assert_eq!(program.functions.len(), 2);
+        assert_eq!(program.functions[0].name, "add");
+        assert_eq!(program.functions[1].name, "mul");
+    }
+
+    #[test]
+    fn test_full_program_with_functions() {
+        let input = "public: x, y private: z fn add(a:Field, b:Field): Field { a + b } x + y == z; add(x, y) == z";
+        let program = grammar::ProgramParser::new().parse(input).unwrap();
+        assert_eq!(program.public_vars, vec!["x", "y"]);
+        assert_eq!(program.private_vars, vec!["z"]);
+        assert_eq!(program.functions.len(), 1);
+        assert_eq!(program.functions[0].name, "add");
+        assert_eq!(program.expressions.len(), 2);
+    }
+
+    #[test]
+    fn test_function_with_compound_body() {
+        let input = "fn compute(x:Field): Field { temp = x + 0x1; temp * 0x2 } compute(0x5)";
+        let program = grammar::ProgramParser::new().parse(input).unwrap();
+        assert_eq!(program.functions.len(), 1);
+        assert_eq!(program.functions[0].name, "compute");
+    }
 }

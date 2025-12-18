@@ -1,5 +1,32 @@
 use std::{fmt::Debug, str::FromStr};
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Type {
+    Field,
+    // Can add more types later if needed
+}
+
+impl Type {
+    pub fn from_str(s: &str) -> Result<Self, &'static str> {
+        match s {
+            "Field" | "field" => Ok(Type::Field),
+            _ => Err("Unknown type - expected 'Field'"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Parameter {
+    pub name: String,
+    pub param_type: Type,
+}
+
+impl Parameter {
+    pub fn new(name: String, param_type: Type) -> Self {
+        Parameter { name, param_type }
+    }
+}
+
 pub trait Node:Debug {}
 pub trait ExpressionNode: Node {}
 pub trait StatementNode: Node {}
@@ -203,14 +230,21 @@ impl StatementNode for CompoundNode {}
 pub struct Program {
     pub public_vars: Vec<String>,
     pub private_vars: Vec<String>,
+    pub functions: Vec<FunctionDefinition>,
     pub expressions: Vec<Box<dyn Node>>,
 }
 
 impl Program {
-    pub fn new(public_vars: Vec<String>, private_vars: Vec<String>, expressions: Vec<Box<dyn Node>>) -> Self {
+    pub fn new(
+        public_vars: Vec<String>,
+        private_vars: Vec<String>,
+        functions: Vec<FunctionDefinition>,
+        expressions: Vec<Box<dyn Node>>
+    ) -> Self {
         Program {
             public_vars,
             private_vars,
+            functions,
             expressions
         }
     }
@@ -231,14 +265,24 @@ impl CompoundExpression {
 impl Node for CompoundExpression {}
 impl ExpressionNode for CompoundExpression {}
 
-#[derive( Debug)]
-struct FunctionDefinitionNode {
+#[derive(Debug)]
+pub struct FunctionDefinition {
     pub name: String,
-    pub parameters: Vec<String>,
-    pub body: Box<dyn StatementNode>,
+    pub parameters: Vec<Parameter>,
+    pub return_type: Type,
+    pub body: Box<dyn Node>,
 }
-impl Node for FunctionDefinitionNode {}
-impl StatementNode for FunctionDefinitionNode {}
+
+impl FunctionDefinition {
+    pub fn new(name: String, parameters: Vec<Parameter>, return_type: Type, body: Box<dyn Node>) -> Self {
+        FunctionDefinition {
+            name,
+            parameters,
+            return_type,
+            body,
+        }
+    }
+}
 
 #[derive( Debug)]
 pub struct FunctionCallNode {

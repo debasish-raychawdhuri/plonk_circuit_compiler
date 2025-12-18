@@ -3,12 +3,13 @@ use std::str::FromStr;
 
 grammar;
 
-// Program with optional public/private variable declarations followed by expressions
+// Program with optional public/private variable declarations, function definitions, and expressions
 pub Program: Program = {
-    <pub_vars:PublicVars?> <priv_vars:PrivateVars?> <exprs:ExpressionList> =>
+    <pub_vars:PublicVars?> <priv_vars:PrivateVars?> <funcs:FunctionDefs?> <exprs:ExpressionList> =>
         Program::new(
             pub_vars.unwrap_or_else(|| vec![]),
             priv_vars.unwrap_or_else(|| vec![]),
+            funcs.unwrap_or_else(|| vec![]),
             exprs
         ),
 };
@@ -30,6 +31,47 @@ VarList: Vec<String> = {
         list
     },
     <var:Identifier> => vec![var],
+};
+
+// Function definitions
+FunctionDefs: Vec<FunctionDefinition> = {
+    <mut funcs:FunctionDefs> <func:FunctionDef> => {
+        funcs.push(func);
+        funcs
+    },
+    <func:FunctionDef> => vec![func],
+};
+
+// Single function definition: fn name(param:type, ...): type { body }
+// Body must be a compound expression (braces are mandatory)
+FunctionDef: FunctionDefinition = {
+    "fn" <name:Identifier> "(" <params:ParamList?> ")" ":" <ret_type:TypeName> <body:CompoundExpression> =>
+        FunctionDefinition::new(
+            name,
+            params.unwrap_or_else(|| vec![]),
+            ret_type,
+            body
+        ),
+};
+
+// Parameter list: param1:type1, param2:type2, ...
+ParamList: Vec<Parameter> = {
+    <mut list:ParamList> "," <param:Param> => {
+        list.push(param);
+        list
+    },
+    <param:Param> => vec![param],
+};
+
+// Single parameter: name:type
+Param: Parameter = {
+    <name:Identifier> ":" <param_type:TypeName> =>
+        Parameter::new(name, param_type),
+};
+
+// Type name (using identifier and converting)
+TypeName: Type = {
+    <s:Identifier> =>? Type::from_str(&s).map_err(|e| lalrpop_util::ParseError::User { error: e }),
 };
 
 ExpressionList: Vec<Box<dyn Node>> = {

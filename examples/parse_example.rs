@@ -1,14 +1,15 @@
 use plonk_circuit_compiler::grammar;
 
 fn main() {
-    // Example 0: Program with public and private variables
-    let input0 = "public: x, y private: z x + y == z; x > 0x0";
+    // Example 0: Full program with public/private vars and functions
+    let input0 = "public: x, y private: z fn add(a:Field, b:Field): Field { a + b } x + y == z; add(x, y) == z";
     match grammar::ProgramParser::new().parse(input0) {
         Ok(program) => {
             println!("✓ Parsed: {}", input0);
             println!("  Public vars: {:?}", program.public_vars);
             println!("  Private vars: {:?}", program.private_vars);
-            println!("  Expressions: {} boolean expressions", program.expressions.len());
+            println!("  Functions: {} function(s)", program.functions.len());
+            println!("  Expressions: {} boolean expression(s)", program.expressions.len());
         },
         Err(e) => println!("✗ Error parsing '{}': {:?}", input0, e),
     }
