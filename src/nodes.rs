@@ -1,4 +1,4 @@
-use std::{fmt::Debug, str::FromStr};
+use std::str::FromStr;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
@@ -26,10 +26,6 @@ impl Parameter {
         Parameter { name, param_type }
     }
 }
-
-pub trait Node:Debug {}
-pub trait ExpressionNode: Node {}
-pub trait StatementNode: Node {}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FieldLiteral {
@@ -99,139 +95,65 @@ impl FromStr for FieldLiteral {
     }
 }
 
-impl Node for FieldLiteral {}
-impl ExpressionNode for FieldLiteral {}
+#[derive(Clone, Debug, PartialEq)]
+pub enum Expression {
+    // Arithmetic operators (inlined)
+    Add(Box<Expression>, Box<Expression>),
+    Subtract(Box<Expression>, Box<Expression>),
+    Multiply(Box<Expression>, Box<Expression>),
+    Divide(Box<Expression>, Box<Expression>),
 
-#[derive(Debug)]
-pub struct BinaryOperationNode {
-    pub left: Box<dyn Node>,
-    pub right: Box<dyn Node>,
-    pub operator: BinaryOperator,
-}
+    // Comparison operators (inlined)
+    Equal(Box<Expression>, Box<Expression>),
+    NotEqual(Box<Expression>, Box<Expression>),
+    LessThan(Box<Expression>, Box<Expression>),
+    LessThanOrEqual(Box<Expression>, Box<Expression>),
+    GreaterThan(Box<Expression>, Box<Expression>),
+    GreaterThanOrEqual(Box<Expression>, Box<Expression>),
 
+    // Logical operators (inlined)
+    And(Box<Expression>, Box<Expression>),
+    Or(Box<Expression>, Box<Expression>),
 
-#[derive(Clone,Copy, Debug, PartialEq, Eq)]
-pub enum BinaryOperator {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    // Comparison operators
-    Equal,
-    NotEqual,
-    LessThan,
-    LessThanOrEqual,
-    GreaterThan,
-    GreaterThanOrEqual,
-    // Logical operators
-    And,
-    Or,
-}
+    // Unary operators (inlined)
+    Negate(Box<Expression>),
+    Not(Box<Expression>),
 
-impl BinaryOperationNode {
-    pub fn new(left: Box<dyn Node>, right: Box<dyn Node>, operator: BinaryOperator) -> Self {
-        BinaryOperationNode {
-            left,
-            right,
-            operator,
-        }
-    }
-    
-}
-impl Node for BinaryOperationNode {}
+    // Primary expressions
+    Literal(FieldLiteral),
+    Variable(String),
 
-impl ExpressionNode for BinaryOperationNode {}
+    If {
+        condition: Box<Expression>,
+        then_branch: Box<Expression>,
+        else_branch: Option<Box<Expression>>,
+    },
 
-#[derive( Debug)]
-pub enum UnaryOperator {
-    Negate,
-    Not,
-}
-#[derive( Debug)]
-pub struct UnaryOperationNode {
-    pub operand: Box<dyn Node>,
-    pub operator: UnaryOperator,
-}
-impl UnaryOperationNode {
-    pub fn new(operand: Box<dyn Node>, operator: UnaryOperator) -> Self {
-        UnaryOperationNode { operand, operator }
-    }
-}
-impl Node for UnaryOperationNode {}
-impl ExpressionNode for UnaryOperationNode {}
+    Compound {
+        statements: Vec<Statement>,
+        expression: Box<Expression>,
+    },
 
-#[derive( Debug)]
-pub struct AssignmentNode {
-    pub variable_name: String,
-    pub value: Box<dyn Node>,
+    FunctionCall {
+        name: String,
+        arguments: Vec<Expression>,
+    },
 }
 
-impl AssignmentNode {
-    pub fn new(variable_name: String, value: Box<dyn Node>) -> Self {
-        AssignmentNode {
-            variable_name,
-            value,
-        }
-    }
+#[derive(Clone, Debug, PartialEq)]
+pub enum Statement {
+    Assignment {
+        variable_name: String,
+        value: Expression,
+    },
 }
-impl Node for AssignmentNode {}
-impl StatementNode for AssignmentNode {}
-
-#[derive( Debug)]
-pub struct VariableNode {
-    pub name: String,
-}
-impl VariableNode {
-    pub fn new(name: String) -> Self {
-        VariableNode { name }
-    }
-}
-impl Node for VariableNode {}
-impl ExpressionNode for VariableNode {}
-
-#[derive( Debug)]
-pub struct IfNode {
-    pub condition: Box<dyn Node>,
-    pub then_branch: Box<dyn Node>,
-    pub else_branch: Option<Box<dyn Node>>,
-}
-    
-
-impl IfNode {
-    pub fn new(
-        condition: Box<dyn Node>,
-        then_branch: Box<dyn Node>,
-        else_branch: Option<Box<dyn Node>>,
-    ) -> Self {
-        IfNode {
-            condition,
-            then_branch,
-            else_branch,
-        }
-    }
-}
-impl Node for IfNode {}
-impl StatementNode for IfNode {}
-
-struct WhileNode {
-    pub condition: Box<dyn Node>,
-    pub body: Box<dyn StatementNode>,
-    pub max_iterations: u64,
-}
-
-#[derive( Debug)]
-pub struct CompoundNode {
-    pub statements: Vec<Box<dyn StatementNode>>,
-}
-impl Node for CompoundNode {}
-impl StatementNode for CompoundNode {}
 
 #[derive(Debug)]
 pub struct Program {
     pub public_vars: Vec<String>,
     pub private_vars: Vec<String>,
     pub functions: Vec<FunctionDefinition>,
-    pub expressions: Vec<Box<dyn Node>>,
+    pub expressions: Vec<Expression>,
 }
 
 impl Program {
@@ -239,42 +161,32 @@ impl Program {
         public_vars: Vec<String>,
         private_vars: Vec<String>,
         functions: Vec<FunctionDefinition>,
-        expressions: Vec<Box<dyn Node>>
+        expressions: Vec<Expression>,
     ) -> Self {
         Program {
             public_vars,
             private_vars,
             functions,
-            expressions
+            expressions,
         }
     }
 }
-
-#[derive(Debug)]
-pub struct CompoundExpression {
-    pub statements: Vec<AssignmentNode>,
-    pub expression: Box<dyn Node>,
-}
-
-impl CompoundExpression {
-    pub fn new(statements: Vec<AssignmentNode>, expression: Box<dyn Node>) -> Self {
-        CompoundExpression { statements, expression }
-    }
-}
-
-impl Node for CompoundExpression {}
-impl ExpressionNode for CompoundExpression {}
 
 #[derive(Debug)]
 pub struct FunctionDefinition {
     pub name: String,
     pub parameters: Vec<Parameter>,
     pub return_type: Type,
-    pub body: Box<dyn Node>,
+    pub body: Expression,
 }
 
 impl FunctionDefinition {
-    pub fn new(name: String, parameters: Vec<Parameter>, return_type: Type, body: Box<dyn Node>) -> Self {
+    pub fn new(
+        name: String,
+        parameters: Vec<Parameter>,
+        return_type: Type,
+        body: Expression,
+    ) -> Self {
         FunctionDefinition {
             name,
             parameters,
@@ -283,35 +195,3 @@ impl FunctionDefinition {
         }
     }
 }
-
-#[derive( Debug)]
-pub struct FunctionCallNode {
-    pub function_name: String,
-    pub arguments: Vec<Box<dyn Node>>,
-}
-
-impl FunctionCallNode {
-    pub fn new(function_name: String, arguments: Vec<Box<dyn Node>>) -> Self {
-        FunctionCallNode {
-            function_name,
-            arguments,
-        }
-    }
-}
-impl Node for FunctionCallNode {}
-impl StatementNode for FunctionCallNode {}
-
-#[derive( Debug)]
-struct ReturnNode {
-    pub value: dyn ExpressionNode,
-}
-impl Node for ReturnNode {}
-impl StatementNode for ReturnNode {}
-
-#[derive( Debug)]
-struct TableLookupNode {
-    pub table_name: String,
-    pub key: Box<dyn ExpressionNode>,
-}
-impl Node for TableLookupNode {}
-impl ExpressionNode for TableLookupNode {}

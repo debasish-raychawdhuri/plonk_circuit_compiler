@@ -74,7 +74,7 @@ TypeName: Type = {
     <s:Identifier> =>? Type::from_str(&s).map_err(|e| lalrpop_util::ParseError::User { error: e }),
 };
 
-ExpressionList: Vec<Box<dyn Node>> = {
+ExpressionList: Vec<Expression> = {
     <mut list:ExpressionList> ";" <expr:Expression> => {
         list.push(expr);
         list
@@ -83,73 +83,81 @@ ExpressionList: Vec<Box<dyn Node>> = {
 };
 
 // Expression hierarchy with proper precedence
-pub Expression: Box<dyn Node> = {
+pub Expression: Expression = {
     OrExpression,
 };
 
 // Logical OR
-OrExpression: Box<dyn Node> = {
+OrExpression: Expression = {
     <left:OrExpression> "||" <right:AndExpression> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::Or)),
+        Expression::Or(Box::new(left), Box::new(right)),
     AndExpression,
 };
 
 // Logical AND
-AndExpression: Box<dyn Node> = {
+AndExpression: Expression = {
     <left:AndExpression> "&&" <right:ComparisonExpression> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::And)),
+        Expression::And(Box::new(left), Box::new(right)),
     ComparisonExpression,
 };
 
+NotExpression: Expression = {
+    "!" <expr: NotExpression> =>
+        Expression::Not(Box::new(expr)),
+    Primary,
+}
+
 // Comparison operators
-ComparisonExpression: Box<dyn Node> = {
+ComparisonExpression: Expression = {
     <left:ArithmeticExpression> "==" <right:ArithmeticExpression> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::Equal)),
+        Expression::Equal(Box::new(left), Box::new(right)),
     <left:ArithmeticExpression> "!=" <right:ArithmeticExpression> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::NotEqual)),
+        Expression::NotEqual(Box::new(left), Box::new(right)),
     <left:ArithmeticExpression> "<" <right:ArithmeticExpression> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::LessThan)),
+        Expression::LessThan(Box::new(left), Box::new(right)),
     <left:ArithmeticExpression> "<=" <right:ArithmeticExpression> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::LessThanOrEqual)),
+        Expression::LessThanOrEqual(Box::new(left), Box::new(right)),
     <left:ArithmeticExpression> ">" <right:ArithmeticExpression> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::GreaterThan)),
+        Expression::GreaterThan(Box::new(left), Box::new(right)),
     <left:ArithmeticExpression> ">=" <right:ArithmeticExpression> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::GreaterThanOrEqual)),
+        Expression::GreaterThanOrEqual(Box::new(left), Box::new(right)),
     ArithmeticExpression,
 };
 
 // Arithmetic: Addition and Subtraction
-ArithmeticExpression: Box<dyn Node> = {
+ArithmeticExpression: Expression = {
     <left:ArithmeticExpression> "+" <right:Term> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::Add)),
+        Expression::Add(Box::new(left), Box::new(right)),
     <left:ArithmeticExpression> "-" <right:Term> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::Subtract)),
+        Expression::Subtract(Box::new(left), Box::new(right)),
     Term,
 };
 
 // Multiplication and Division
-Term: Box<dyn Node> = {
-    <left:Term> "*" <right:UnaryExpression> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::Multiply)),
-    <left:Term> "/" <right:UnaryExpression> =>
-        Box::new(BinaryOperationNode::new(left, right, BinaryOperator::Divide)),
-    UnaryExpression,
+Term: Expression = {
+    <left:Term> "*" <right:UnaryNegation> =>
+        Expression::Multiply(Box::new(left), Box::new(right)),
+    <left:Term> "/" <right:UnaryNegation> =>
+        Expression::Divide(Box::new(left), Box::new(right)),
+    UnaryNegation,
 };
 
 // Unary operators
-UnaryExpression: Box<dyn Node> = {
-    "-" <expr:UnaryExpression> =>
-        Box::new(UnaryOperationNode::new(expr, UnaryOperator::Negate)),
-    "!" <expr:UnaryExpression> =>
-        Box::new(UnaryOperationNode::new(expr, UnaryOperator::Not)),
+UnaryNegation: Expression = {
+    "-" <expr:UnaryNegation> =>
+        Expression::Negate(Box::new(expr)),
     Primary,
 };
 
 // Primary expressions
-Primary: Box<dyn Node> = {
+Primary: Expression = {
     "(" <Expression> ")",
     "if" "(" <cond:Expression> ")" <then_expr:Primary> "else" <else_expr:Primary> =>
-        Box::new(IfNode::new(cond, then_expr, Some(else_expr))),
+        Expression::If {
+            condition: Box::new(cond),
+            then_branch: Box::new(then_expr),
+            else_branch: Some(Box::new(else_expr)),
+        },
     CompoundExpression,
     FieldLiteral,
     Variable,
@@ -157,15 +165,21 @@ Primary: Box<dyn Node> = {
 };
 
 // Compound expression: { statements; expression }
-CompoundExpression: Box<dyn Node> = {
+CompoundExpression: Expression = {
     "{" <stmts:Statements> <expr:Expression> "}" =>
-        Box::new(CompoundExpression::new(stmts, expr)),
+        Expression::Compound {
+            statements: stmts,
+            expression: Box::new(expr),
+        },
     "{" <expr:Expression> "}" =>
-        Box::new(CompoundExpression::new(vec![], expr)),
+        Expression::Compound {
+            statements: vec![],
+            expression: Box::new(expr),
+        },
 };
 
 // List of statements (assignments)
-Statements: Vec<AssignmentNode> = {
+Statements: Vec<Statement> = {
     <mut stmts:Statements> <stmt:Statement> ";" => {
         stmts.push(stmt);
         stmts
@@ -174,32 +188,41 @@ Statements: Vec<AssignmentNode> = {
 };
 
 // Statement (assignment)
-Statement: AssignmentNode = {
+Statement: Statement = {
     <var:Identifier> "=" <expr:Expression> =>
-        AssignmentNode::new(var, expr),
+        Statement::Assignment {
+            variable_name: var,
+            value: expr,
+        },
 };
 
 // Field literal (256-bit hexadecimal number only)
-FieldLiteral: Box<dyn Node> = {
+FieldLiteral: Expression = {
     <s:r"0[xX][0-9a-fA-F]+"> => {
-        Box::new(FieldLiteral::from_str(s).unwrap())
+        Expression::Literal(FieldLiteral::from_str(s).unwrap())
     },
 };
 
 // Variable reference
-Variable: Box<dyn Node> = {
-    <name:Identifier> => Box::new(VariableNode::new(name)),
+Variable: Expression = {
+    <name:Identifier> => Expression::Variable(name),
 };
 
 // Function call
-FunctionCall: Box<dyn Node> = {
+FunctionCall: Expression = {
     <name:Identifier> "(" <args:ArgumentList> ")" =>
-        Box::new(FunctionCallNode::new(name, args)),
+        Expression::FunctionCall {
+            name,
+            arguments: args,
+        },
     <name:Identifier> "(" ")" =>
-        Box::new(FunctionCallNode::new(name, vec![])),
+        Expression::FunctionCall {
+            name,
+            arguments: vec![],
+        },
 };
 
-ArgumentList: Vec<Box<dyn Node>> = {
+ArgumentList: Vec<Expression> = {
     <mut list:ArgumentList> "," <expr:Expression> => {
         list.push(expr);
         list
